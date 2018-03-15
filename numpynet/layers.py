@@ -37,7 +37,6 @@ class Dense(object):
             next_layer_errors,
             stimuli = None
     ):
-        stimuli = None
         if type(stimuli) is not np.ndarray:
             stimuli = self._stimuli(prev_layer_state)
 
@@ -82,8 +81,6 @@ class Conv2d(object):
         self.n_channels = input_size[0]
         self.width = input_size[1]
         self.height = input_size[2]
-
-
         self.filter_width = filter_size[0]
         self.filter_height = filter_size[1]
         self.n_filters = n_filters
@@ -99,16 +96,24 @@ class Conv2d(object):
             self.n_filters,
             self.filter_width * self.filter_height * self.n_channels
         )
+        self.b = np.random.randn(
+            self.n_filters
+        )
 
     def _stimuli(self, X):
         res = np.matmul(self.W, self.im2col(X))
 
+        # Add the constant
+        res = res + self.b[:,np.newaxis].repeat(res.shape[1], axis=1)
+
+        # Reshape the result to images again
         res = res.reshape(
             self.n_filters,
             int((X.shape[2] + 2 * self.padding - self.filter_height) / self.stride + 1),
             int((X.shape[3] + 2 * self.padding - self.filter_width) / self.stride + 1),
             X.shape[0]
         ).transpose(3, 0, 1, 2)
+
 
         return res
 
@@ -165,3 +170,55 @@ class Conv2d(object):
         inputs = self._stimuli(X)
 
         return self.activation_function.apply(inputs), inputs
+
+    def backward(
+        self,
+        prev_layer_state,
+        next_layer_errors,
+        stimuli=None
+    ):
+        if type(stimuli) is not np.ndarray:
+            stimuli = self._stimuli(prev_layer_state)
+
+        activ_grad = self.activation_function.grad(stimuli)
+        stimulus_grad = next_layer_errors * activ_grad
+
+        grad_b = np.sum(stimulus_grad, axis=(0,2,3))
+
+
+
+        #TODO: calculate grad_W, calculate_errors
+
+        return None, grad_b, None
+
+
+class Flatten(object):
+    def __init__(
+        self,
+        input_shape
+    ):
+        self.input_shape = input_shape
+
+        #TODO: temp solution:
+        self.W = 0
+        self.b = 0
+
+
+    @property
+    def size(self):
+        size=1
+        for i in self.input_shape:
+            size = size*i
+        return size
+
+    def forward(self, X):
+        return X.reshape(-1, self.size), X
+
+
+    def backward(
+        self,
+        prev_layer_state,
+        next_layer_errors,
+        stimuli=None
+    ):
+        return 0, 0, next_layer_errors.reshape((-1,) + self.input_shape)
