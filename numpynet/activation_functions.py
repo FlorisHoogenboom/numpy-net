@@ -10,12 +10,10 @@ class ActivationFunction(ABC):
     @abstractmethod
     def apply(self, input):
         self._validate_input_shape(input)
-        check_2d_array(input)
 
     @abstractmethod
     def grad(self, input):
         self._validate_input_shape(input)
-        check_2d_array(input)
 
 
 class Tanh(ActivationFunction):
@@ -32,6 +30,9 @@ class Tanh(ActivationFunction):
 
 
 class Lin(ActivationFunction):
+    def _validate_input_shape(self, input):
+        check_2d_array(input)
+
     def apply(self, input):
         super(Lin, self).apply(input)
 
@@ -40,6 +41,7 @@ class Lin(ActivationFunction):
     def grad(self, input):
         super(Lin, self).grad(input)
 
+        # TODO: this now only supports 2d inputs....
         return np.repeat(
             np.identity(input.shape[1])[None,...],
             input.shape[0],
@@ -49,7 +51,7 @@ class Lin(ActivationFunction):
 
 class Softmax(ActivationFunction):
     def _validate_input_shape(self, input):
-        assert(input.ndim == 2)
+        check_2d_array(input)
 
     def apply(self, input):
         super(Softmax, self).apply(input)
