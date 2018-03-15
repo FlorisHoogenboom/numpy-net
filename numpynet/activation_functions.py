@@ -29,6 +29,20 @@ class Tanh(ActivationFunction):
         return 1 - np.square(np.tanh(input))
 
 
+class ReLu(ActivationFunction):
+    def _validate_input_shape(self, input):
+        pass
+
+    def apply(self, input):
+        def apply(self, input):
+            super(ReLu, self).apply(input)
+        return np.maximum(input, 0)
+
+    def grad(self, input):
+        super(ReLu, self).grad(input)
+        return 1.0 * (input > 0)
+
+
 class Lin(ActivationFunction):
     def _validate_input_shape(self, input):
         check_2d_array(input)
