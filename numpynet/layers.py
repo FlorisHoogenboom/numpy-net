@@ -63,3 +63,105 @@ class Dense(object):
         grad_w = (prev_layer_state * stimulus_error).reshape(-1, self.size, self.input_size)
 
         return grad_w, grad_b, errors
+
+class Conv2d(object):
+    """
+    Convolutional layer that performs 2d convolution.
+    This layer highly relies on the im2col and col2im
+    implementations provided by the Stanford CS231 class.
+    """
+    def __init__(
+        self,
+        input_size,
+        filter_size=(2,2),
+        n_filters=10,
+        padding=1,
+        stride=1,
+        activation_function=Tanh()
+    ):
+        self.n_channels = input_size[0]
+        self.width = input_size[1]
+        self.height = input_size[2]
+
+
+        self.filter_width = filter_size[0]
+        self.filter_height = filter_size[1]
+        self.n_filters = n_filters
+        self.padding = padding
+        self.stride = stride
+        self.activation_function = activation_function
+
+        self._initialize()
+
+    def _initialize(self):
+        """Initialize the weights for this layer."""
+        self.W = np.random.randn(
+            self.n_filters,
+            self.filter_width * self.filter_height * self.n_channels
+        )
+
+    def _stimuli(self, X):
+        res = np.matmul(self.W, self.im2col(X))
+
+        res = res.reshape(
+            self.n_filters,
+            int((X.shape[2] + 2 * self.padding - self.filter_height) / self.stride + 1),
+            int((X.shape[3] + 2 * self.padding - self.filter_width) / self.stride + 1),
+            X.shape[0]
+        ).transpose(3, 0, 1, 2)
+
+        return res
+
+    def get_im2col_indices(self, x_shape):
+        # Get parameters for the transformation
+        field_height = self.filter_height
+        field_width = self.filter_width
+        padding = self.padding
+        stride = self.stride
+
+        # First figure out what the size of the output should be
+        N, C, H, W = x_shape
+        assert (H + 2 * padding - field_height) % stride == 0
+        assert (W + 2 * padding - field_height) % stride == 0
+        out_height = int((H + 2 * padding - field_height) / stride + 1)
+        out_width = int((W + 2 * padding - field_width) / stride + 1)
+
+        i0 = np.repeat(np.arange(field_height), field_width)
+        i0 = np.tile(i0, C)
+        i1 = stride * np.repeat(np.arange(out_height), out_width)
+        j0 = np.tile(np.arange(field_width), field_height * C)
+        j1 = stride * np.tile(np.arange(out_width), out_height)
+        i = i0.reshape(-1, 1) + i1.reshape(1, -1)
+        j = j0.reshape(-1, 1) + j1.reshape(1, -1)
+
+        k = np.repeat(np.arange(C), field_height * field_width).reshape(-1, 1)
+
+        return (k, i, j)
+
+    def im2col(self, x):
+        # Get parameters for the transformation
+        field_height = self.filter_height
+        field_width = self.filter_width
+        padding = self.padding
+
+        """ An implementation of im2col based on some fancy indexing """
+        # Zero-pad the input
+        p = padding
+        x_padded = np.pad(x, ((0, 0), (0, 0), (p, p), (p, p)), mode='constant')
+
+        k, i, j = self.get_im2col_indices(x.shape)
+
+        cols = x_padded[:, k, i, j]
+        C = x.shape[1]
+        cols = cols.transpose(1, 2, 0).reshape(field_height * field_width * C, -1)
+        return cols
+
+    def _validate_input_shape(self, X):
+        assert X.shape[1:] == (self.n_channels, self.width, self.height)
+
+    def forward(self, X):
+        self._validate_input_shape(X)
+
+        inputs = self._stimuli(X)
+
+        return self.activation_function.apply(inputs), inputs
