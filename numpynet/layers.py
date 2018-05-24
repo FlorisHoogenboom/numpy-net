@@ -180,16 +180,26 @@ class Conv2d(object):
         if type(stimuli) is not np.ndarray:
             stimuli = self._stimuli(prev_layer_state)
 
+        N, n_filters, out_width, out_height = stimuli.shape
+
+        # Calculate the gradient of a stimulus
         activ_grad = self.activation_function.grad(stimuli)
         stimulus_grad = next_layer_errors * activ_grad
 
+        # Stimulus gradient into image form
+        stimulus_grad = stimulus_grad.reshape(N, n_filters, out_width * out_height)
+        prev_layer_trans = self.im2col(prev_layer_state).reshape((N, out_height*out_width, -1))
+
+        grad_w = np.matmul(
+            prev_layer_trans.transpose(0,2,1),
+            stimulus_grad.transpose(0,2,1)
+        )
+
+        ## TODO: FIX THIS
         grad_b = np.sum(stimulus_grad, axis=(0,2,3))
 
 
-
-        #TODO: calculate grad_W, calculate_errors
-
-        return None, grad_b, None
+        return grad_w, grad_b, None
 
 
 class Flatten(object):
@@ -200,8 +210,8 @@ class Flatten(object):
         self.input_shape = input_shape
 
         #TODO: temp solution:
-        self.W = 0
-        self.b = 0
+        self.W = np.array([0])
+        self.b = np.array([0])
 
 
     @property
@@ -221,4 +231,4 @@ class Flatten(object):
         next_layer_errors,
         stimuli=None
     ):
-        return 0, 0, next_layer_errors.reshape((-1,) + self.input_shape)
+        return np.array([[0]]), np.array([[0]]), next_layer_errors.reshape((-1,) + self.input_shape)
